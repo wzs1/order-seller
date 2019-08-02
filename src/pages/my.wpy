@@ -1,0 +1,158 @@
+<style lang="less">
+    @import '../styles/my';
+     page {
+        width: 100%;
+        height: 100%;
+        background: rgba(245, 245, 245, 1);
+    }
+</style>
+
+<template>
+    <view>
+        <view class="business-panel">
+            <view class="bs-p">
+                <image src="{{cover}}" mode="scaleToFill" lazy-load="false" />
+            </view>
+            <view class="store-info">
+                <view>
+                    <view>{{storename}}</view>
+                    <view>
+                        <i class="iconfont icon-dianhua"></i> {{phone}}
+                    </view>
+                </view>
+            </view>
+            <view class="income-box">
+                <view>
+                    <view>{{sellerMoney}}
+                        <view>元</view>
+                    </view>
+                    <view>
+                        本周收入
+                    </view>
+                </view>
+            </view>
+        </view>
+        <blank></blank>
+        <view class="bus-list">
+            <navigator url="{{'goods-manager'}}" open-type="navigate" hover-class="none">
+           
+            <view class="list">
+                <view><i class="iconfont icon-menu"></i></view>
+                <view>
+                    <view>
+                        商品管理
+                    </view>
+                    <i class="iconfont icon-gengduo"></i>
+                </view>
+            </view>
+             </navigator>
+            <navigator url="{{'goods-classification'}}" open-type="navigate" hover-class="none">
+            
+            <view class="list">
+                    <view><i class="iconfont icon-fenlei"></i></view>
+                <view>
+                    <view>
+                        商品分类
+                    </view>
+                    <i class="iconfont icon-gengduo"></i>
+                </view>
+            </view>
+            </navigator>
+            <!-- <view class="list">
+                  <view><i class="iconfont icon-business"></i></view>
+                <view>
+                    <view>
+                        店铺设置
+                    </view>
+                    <i class="iconfont icon-gengduo"></i>
+                </view>
+            </view> -->
+            <navigator url="{{'coin-change'}}" open-type="navigate" hover-class="none">
+            
+            <view class="list">
+                <view><i class="iconfont icon-jinbi1"></i></view>
+                <view>
+                    <view>
+                        金币兑换
+                    </view>
+                    <i class="iconfont icon-gengduo"></i>
+                </view>
+            </view>
+            </navigator>
+            <navigator url="{{'bus-platform'}}" open-type="navigate" hover-class="none">
+            
+            <view class="list" >
+                <view><i class="iconfont icon-renzheng"></i></view>
+                <view>
+                    <view>
+                        商家平台配置
+                    </view>
+                    <i class="iconfont icon-gengduo"></i>
+                </view>
+            </view>
+            </navigator>
+
+        </view>
+    </view>
+</template>
+
+<script>
+    import wepy from 'wepy';
+    import Blank from '@/components/blank';
+    import tip from "@/utils/tip";
+    import publicApi from '@/api/publicApi';
+    import NetWork from '@/utils/wxHttp';
+    export default class My extends wepy.page {
+        config = {
+            backgroundTextStyle: 'light',
+            navigationBarTitleText: '我的',
+            navigationBarBackgroundColor: '#66C693',
+            navigationBarTextStyle: 'white',
+            disableScroll: true
+        }
+        components = {
+            blank: Blank
+        }
+        data = {
+            cover: '../assets/my/avator.png',
+            storename:'',
+            phone:'',
+            storeId:"",
+            sellerMoney:'',
+
+        }
+
+        onLoad(options){
+            var value = wx.getStorageSync('store');
+            this.cover = value.cover;
+            this.storename = value.storename,
+            this.phone = value.phone;
+            this.storeId = value.storeId;
+            this.sellerMoney();
+        }
+
+         //获取商家每周的利润
+            sellerMoney=()=>{
+                let that = this;
+                try {
+                    NetWork.wxHttp2('GET',{
+                        storeId:this.storeId
+                    },publicApi.sellerMoney).then(res=>{
+                        if(res.code == 200){
+                            that.sellerMoney = res.data;
+                             that.$apply();
+                          
+                        }else{
+                            return tip.error(res.msg,true);
+                        }
+                    }).catch(e=>{
+                        return tip.error(e,true);
+                    })
+                } catch (error) {
+                    return tip.error(error,true);
+                }
+            }
+    
+    }
+</script>
+

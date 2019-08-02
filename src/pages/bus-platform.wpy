@@ -1,0 +1,155 @@
+<style lang="less" >
+@import '../styles/bus-platform';
+</style>
+<template>
+  <view class="bus-platform">
+    <blank></blank>
+    <view class="bus-platform-box">
+      <view>
+        <view>商户标识</view>
+        <view><input type="text" placeholder="请输入商户标识" bindinput='mchId' value="{{mchId}}"/></view>
+        <view></view>
+      </view>
+      <view>
+        <view>商户密钥</view>
+        <view><input type="text" placeholder="请输入商户密钥" bindinput='cipher' value="{{cipher}}"/></view>
+        <view @tap="submit">
+            <i class="iconfont icon-bianji"></i>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+<script>
+import wepy from 'wepy';
+import Blank from '@/components/blank';
+import tip from "@/utils/tip";
+import publicApi from '@/api/publicApi';
+import NetWork from '@/utils/wxHttp';
+export default class BusPlatform extends wepy.page {
+  config = {
+    backgroundTextStyle: 'light',
+    navigationBarTitleText: '商户平台',
+    navigationBarBackgroundColor: '#66C693',
+    navigationBarTextStyle: 'white'
+  };
+  components = {
+    blank: Blank
+  };
+
+   data = {
+           
+            storeId:"",
+            merchantId:'',
+            mchId:'',
+            cipher:'',
+            merchant:{},
+        }
+
+  onLoad(options){
+    var value = wx.getStorageSync('store');
+    this.storeId = value.storeId;
+    this.queryMchByStoreId();
+    console.log(this.merchant);
+
+  }
+
+  queryMchByStoreId(){
+    let that = this;
+    NetWork.wxHttp2('GET',{
+      storeId:that.storeId
+    },publicApi.queryMchByStoreId).then(res=>{
+        if(res.code == 200){
+            
+              that.merchantId= res.data.merchantId;
+              that.mchId = res.data.mchId;
+              that.cipher = res.data.cipher;
+              that.merchant = res.data;
+               this.$apply();
+            
+        }else{
+          return tip.error(res.msg);
+        }
+    }).catch(e=>{
+      return tip.error(e,true);
+      
+    })
+  }
+
+  submit(){
+    
+    if(this.merchantId){
+      //修改
+      let {storeId,mchId,cipher,merchantId} = this;
+      if(!merchantId){
+        return tip.alert('商户主键不存在');
+      }
+      if(!storeId){
+        return tip.alert('店铺标识不存在');
+      }
+      if(!mchId){
+        return tip.alert('商户标识不能为空');
+      }
+      if(!cipher){
+        return tip.alert('商户秘钥不能为空');
+      }
+      NetWork.wxHttp2('POST',{  
+        storeId,
+        mchId,
+        cipher,
+        merchantId
+      },publicApi.merchantEdit).then(res=>{
+          if(res.code == 200){
+              tip.success(res.msg);
+              return wx.navigateBack({
+                delta: 1
+              })
+          }else{
+            return tip.error(res.msg,true);
+          }
+      }).catch(e=>{
+        return tip.error(e,true);
+      })
+
+    }else{
+      //插入
+      let {storeId,mchId,cipher} = this;
+      if(!storeId){
+        return tip.alert('店铺标识不存在');
+      }
+      if(!mchId){
+        return tip.alert('商户标识不能为空');
+      }
+      if(!cipher){
+        return tip.alert('商户秘钥不能为空');
+      }
+      NetWork.wxHttp2('POST',{  
+        storeId,
+        mchId,
+        cipher
+      },publicApi.merchantAdd).then(res=>{
+          if(res.code == 200){
+              tip.success(res.msg);
+              return wx.navigateBack({
+                delta: 1
+              })
+          }else{
+            return tip.error(res.msg,true);
+          }
+      }).catch(e=>{
+        return tip.error(e,true);
+      })
+    }
+  }
+   methods = {
+            mchId(e) {
+                this.mchId = e.detail.value
+            },
+            cipher(e) {
+                this.cipher = e.detail.value
+            },
+            
+  }
+}
+</script>
+

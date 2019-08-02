@@ -1,0 +1,148 @@
+<style lang="less">
+    @import '../styles/coin-change';
+</style>
+
+<template>
+    <view class="coin-change">
+        <blank></blank>
+        <view class="coin-input">
+            <view>
+                <view>
+                    金币数(个)
+                </view>
+                <view>
+                    1
+                </view>
+            </view>
+             <view>
+                <view>
+                   人民币
+                </view>
+                <view>
+                    <input type="digit" placeholder="一个金币可兑换多少元" bindinput='money' value="{{money}}"/>
+                </view>
+            </view>
+        </view>
+        <button @tap="submit">确定</button>
+    </view>
+</template>
+
+<script>
+    import wepy from 'wepy'
+    import Blank from '@/components/blank';
+    import tip from "@/utils/tip";
+    import publicApi from '@/api/publicApi';
+    import NetWork from '@/utils/wxHttp';
+    export default class Coin extends wepy.page {
+        config = {
+            backgroundTextStyle: 'light',
+            navigationBarTitleText: '金币兑换',
+            navigationBarBackgroundColor: '#66C693',
+            navigationBarTextStyle: 'white',
+        }
+        components = {
+            blank: Blank
+        }
+         data = {
+           
+            storeId:"",
+            goldId:'',
+            gold:1,
+            money:'',
+        
+        }
+        onLoad(options){
+            var value = wx.getStorageSync('store');
+            this.storeId = value.storeId;
+           this.getGoldRule();
+
+        }
+
+        getGoldRule(){
+            let that = this;
+            NetWork.wxHttp2('GET',{
+                storeId:that.storeId
+            },publicApi.getGoldRule).then(res=>{
+                if(res.code == 200){
+                    that.goldId = res.data.goldId;
+                    that.money = res.data.money;
+                     this.$apply();
+                }
+            }).catch(e=>{
+                return tip.error(e,true);
+            })
+        }
+
+        
+
+         methods = {
+            money(e) {
+                this.money = e.detail.value
+            },
+
+            submit(){
+    
+            if(this.goldId){
+            //修改
+            let {storeId,goldId,gold,money} = this;
+            if(!goldId){
+                return tip.alert('金币兑换规则标识不存在');
+            }
+            if(!storeId){
+                return tip.alert('店铺标识不存在');
+            }
+            if(!money){
+                return tip.alert('一个金币可兑换多少元');
+            }
+           
+            NetWork.wxHttp2('POST',{  
+                storeId,
+                goldId,
+                gold,
+                money
+            },publicApi.goldRuleEdit).then(res=>{
+                if(res.code == 200){
+                    tip.success(res.msg);
+                    return wx.navigateBack({
+                        delta: 1
+                    })
+                }else{
+                    return tip.error(res.msg,true);
+                }
+            }).catch(e=>{
+                return tip.error(e,true);
+            })
+
+            }else{
+            //插入
+             let {storeId,gold,money} = this;
+          
+            if(!storeId){
+                return tip.alert('店铺标识不存在');
+            }
+            if(!money){
+                return tip.alert('一个金币可兑换多少元');
+            }
+            NetWork.wxHttp2('POST',{  
+                storeId,
+                gold,
+                money
+            },publicApi.goldRuleAdd).then(res=>{
+                if(res.code == 200){
+                    tip.success(res.msg);
+                    return wx.navigateBack({
+                        delta: 1
+                    })
+                }else{
+                    return tip.error(res.msg,true);
+                }
+            }).catch(e=>{
+                return tip.error(e,true);
+            })
+            }
+        }
+           
+            
+        }
+    }
+</script>

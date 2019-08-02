@@ -1,0 +1,185 @@
+<style lang="less">
+    @import '../styles/settled';
+    page {
+        background: #fff;
+    }
+</style>
+
+<template>
+    <view class="settled">
+        <blank></blank>
+        <view class="settled-container">
+            <view class="flex ai set-pub">
+                店铺名称
+                <input type="text" placeholder="请输入店铺名称" bindinput='name' />
+            </view>
+            <view class="flex ai set-pub">
+                订餐电话
+                <input type="number" placeholder="请输入订餐电话" bindinput='phone' />
+            </view>
+            <view class="flex data-formate">
+                <view>营业时间</view>
+                <view>
+                    <picker mode="time" value="{{time}}" start="09:01" end="21:01" bindchange="bindStartTimeChange">
+                        <view class="picker">开始:
+                            <view>{{startTime}}</view>
+                        </view>
+                    </picker>
+                    <picker mode="time" value="{{time}}" start="09:01" end="21:01" bindchange="bindEndTimeChange">
+                        <view class="picker">结束营业:
+                            <view>{{endTime}}</view>
+                        </view>
+                    </picker>
+                </view>
+            </view>
+            <view class="flex ai set-pub">
+                店铺地址
+                <input type="text" placeholder="请输入店铺地址" bindinput='address' />
+            </view>
+            <view class="flex logo">
+                <view>店铺logo</view>
+                <view>
+                    <image src="{{logo}}" mode="scaleToFill" @tap='bindImage' />
+                </view>
+            </view>
+            <button class="settled-btn" @tap='settleded'>确认入驻</button>
+        </view>
+    </view>
+</template>
+
+<script>
+    import wepy from 'wepy';
+    import Blank from '@/components/blank';
+    import uploadImage from '@/utils/uploadAliyun';
+    import tip from "@/utils/tip";
+    import publicApi from '@/api/publicApi';
+    import NetWork from '@/utils/wxHttp';
+    export default class Settled extends wepy.page {
+        config = {
+            backgroundTextStyle: 'light',
+            navigationBarTitleText: '我要入驻',
+            navigationBarBackgroundColor: '#66C693',
+            navigationBarTextStyle: 'white',
+            disableScroll: true
+        }
+        components = {
+            blank: Blank
+        }
+        data = {
+            startTime: '8:00',
+            endTime: '21:00',
+            logo: '../assets/settled/clip.png',
+            name:'',
+            phone:null,
+            address:'',
+            storeId:"",
+            url:'',
+        }
+
+        onLoad(option){
+           this.storeId = option.storeId;
+
+        }
+        bindStartTimeChange(e) {
+            console.log(e);
+            this.startTime = e.detail.value;
+        }
+        bindEndTimeChange(e) {
+            this.endTime = e.detail.value;
+        }
+        bindImage() {
+            let _this = this;
+            tip.loading();
+            wx.chooseImage({
+                count: 1,
+                success: function(res) {
+                    var filePath = res.tempFilePaths[0];
+                    _this.logo = filePath;
+                    console.log(_this.logo);
+                    _this.$apply();
+                    uploadImage(filePath,'order/auth/',function(res){
+                        console.log('上传成功');
+                        console.log(res);
+                         tip.loaded();
+                        _this.url = res.aliyunServerURL+'/'+res.aliyunFileKey;
+                         _this.$apply();
+                    },function(e){
+                        console.log(e);
+                    });
+                },
+                fail: function(error) {
+                    console.error("调用本地相册文件时出错")
+                    console.warn(error)
+                },
+                complete: function() {
+                }
+            });
+        }
+        async settleded(){
+            //获取参数
+            let {storeId,address,name,startTime,endTime,url,phone} = this;
+            console.log(url);
+            if(!storeId){
+                return tip.alert('店铺标识不存在');
+            }
+            if(!name){
+             return tip.alert('请填写店铺名称');
+            }
+            if(!address){
+                return tip.alert('请填写店铺地址');
+            }
+            if(!startTime){
+                return tip.alert('请选择开店时间');
+            }
+            if(!endTime){
+                return tip.alert('请选择打烊时间');
+            }
+            if(!url){
+                return tip.alert('请上传图片');
+            }
+            if(!phone){
+                return tip.alert('请填写电话号码');
+            }
+            if(!(/^1[3|4|5|7|8][0-9]\d{4,8}$/.test(phone))){
+                 return tip.alert('电话号码输入不匹配');
+            }
+
+            NetWork.wxHttp2('POST',{
+                    storeId,
+                    storename:name,
+                    address:address,
+                    opentime:startTime,
+                    closetime:endTime,
+                    cover:url,
+                    phone:phone,
+
+                },publicApi.sellerAuth).then(res=>{
+                    if(res.code == 200){
+                        tip.success(res.msg);
+                        return wx.redirectTo({
+                            url:'login'
+                        })
+                    }else{
+                        return tip.error(res.msg,true);
+                    }
+                }).catch(e=>{
+                    return tip.error(e,true);
+                })
+
+            
+
+
+        }
+        methods = {
+            name(e) {
+                this.name = e.detail.value
+            },
+            phone(e) {
+                this.phone = e.detail.value
+            },
+            address(e) {
+                this.address = e.detail.value
+            }
+        }
+    }
+</script>

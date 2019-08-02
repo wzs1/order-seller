@@ -1,0 +1,120 @@
+<style lang="less">
+@import '../styles/login.less';
+</style>
+<template>
+  <view class="login">
+    <view class="mark flex justify-center">
+      <view>
+        <image src="../assets/login/login-logo.png" />
+        <view>娱味</view>
+      </view>
+    </view>
+    <button bindgetuserinfo="getUserInfo" open-type="getUserInfo">微信登陆</button>
+    <view class="pos-f login-f flex justify-center">
+      登录代表您已同意
+      <view>娱味</view>用户协议、隐私协议
+    </view>
+  </view>
+</template>
+<script>
+import wepy from 'wepy';
+import NetWork from '@/utils/wxHttp';
+import tip from '@/utils/tip';
+ import publicApi from '@/api/publicApi';
+export default class Login extends wepy.page {
+  config = {
+    backgroundTextStyle: 'light',
+    navigationBarTitleText: '登录',
+    navigationBarBackgroundColor: '#fff',
+    navigationBarTextStyle: 'black',
+    disableScroll: true
+  };
+
+    async getUserInfo(res) { 
+    console.log(res);
+    var userinfo = {};
+    let info = res;
+    let that = this;
+    if (info.detail.userInfo) {
+     let p = await this.promiseLogin();
+     this.login(p,info.detail.userInfo.nickName,info.detail.userInfo.avatarUrl);
+    } else {
+    }
+  }
+
+  promiseLogin(){
+    return new Promise((resolve,reject)=>{
+       wx.login({
+         success: function  (res) {
+          if (res.code) {
+  
+            resolve(res.code)
+            
+          } else {
+             return wx.showToast({
+                    title:'微信授权失败2',
+                    icon:'none',
+                  })
+          }
+        }
+      });
+    })
+  }
+
+  login(code,nickName,avatarUrl){
+    NetWork.wxHttp2('POST',{
+              code:code,
+              nickName: nickName,
+              avatarUrl: avatarUrl
+            },publicApi.sellerLogin).then(res=>{
+               if(res.code == 200){
+                  let store = res.data;
+                  if(store.isAuth == 0){
+                    return wx.redirectTo({
+                      url: 'settled?storeId='+store.storeId
+                    })
+                     
+                  } if(store.status != 2){
+                      return tip.alert('请等待平台审核');
+                    }else if(store.isAuth == 1 && store.status == 2){
+                    wx.setStorageSync('store', store);
+                    wx.switchTab({
+                      url: 'index'
+                    });
+                  }
+                 
+                  
+
+               }else{
+                  return wx.showToast({
+                    title:res.msg,
+                    icon:'none',
+                  })
+               }
+            }).catch(e=>{
+          
+
+                return wx.showToast({
+                  title:e,
+
+                })
+            })
+  }
+
+  onLoad() {
+     
+    wx.getStorage({
+      key: 'store',
+      success(res) {
+        if (res) {
+          wx.switchTab({
+            url: 'index'
+          });
+    
+        }
+      }
+    });
+  }
+}
+</script>
+

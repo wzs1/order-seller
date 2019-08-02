@@ -1,0 +1,223 @@
+<style lang="less">
+@import '../styles/goods-classification';
+page {
+  height: 100%;
+  width: 100%;
+  background: rgba(248, 248, 248, 1);
+}
+</style>
+<template >
+  <view class="menu-ul" key="{{id}}">
+    <blank></blank>
+    <view class="menu-list" wx:for="{{typeList}}" wx:for-index="id" wx:for-item="item">
+      <view>{{item.name}}</view>
+      <view>
+        <view>
+          <i class="iconfont icon-bianji" @tap="click" data-typeId="{{item.typeId}}"></i>
+        </view>
+        <view>
+          <i class="iconfont icon-shanchu" @tap="removeType"  data-typeId="{{item.typeId}}"></i>
+        </view>
+      </view>
+    </view>
+    <button class="add-menu" @tap="addType" >添加分类</button>
+
+    <modal
+      hidden="{{hiddenmodalput}}"
+      confirm-text="提交"
+      cancel-text="取消"
+      bindcancel="cancel"
+      bindconfirm="confirm"
+    >
+      <input type="text" placeholder="请输入商品分类(如：饮料，苹果)" auto-focus bindinput='name' value="{{name}}"/>
+    </modal>
+
+      <modal
+      hidden="{{hiddenModifymodalput}}"
+      confirm-text="提交"
+      cancel-text="取消"
+      bindcancel="cancelModify"
+      bindconfirm="confirmModify"
+    >
+      <input type="text" placeholder="请输入商品分类(如：饮料，苹果)" auto-focus bindinput='name' value="{{name}}"/>
+    </modal>
+  </view>
+</template>
+<script>
+import wepy from 'wepy';
+import Blank from '@/components/blank';
+import tip from "@/utils/tip";
+import publicApi from '@/api/publicApi';
+import NetWork from '@/utils/wxHttp';
+export default class GoodsClassification extends wepy.page {
+  config = {
+    backgroundTextStyle: 'light',
+    navigationBarTitleText: '商品分类管理',
+    navigationBarBackgroundColor: '#66C693',
+    navigationBarTextStyle: 'white',
+    enablePullDownRefresh: true,
+    onReachBottomDistance:50,
+  };
+  data = {
+    hiddenmodalput: true,
+    hiddenModifymodalput:true,
+    storeId:"",
+    typeList:[],
+    name:'',
+    typeId:'',
+   
+  };
+  components = {
+    blank: Blank
+  };
+  onLoad(options){
+          var value = wx.getStorageSync('store');
+          this.storeId = value.storeId;
+         this.typeListHander();
+
+  }
+  onPullDownRefresh(){
+     this.typeListHander();
+  }
+
+ 
+  typeListHander(){
+      let that = this;
+       tip.loading();
+      NetWork.wxHttp2('GET',{
+        storeId:that.storeId,
+      },publicApi.typeList).then(res=>{
+         
+          if(res.code == 200){
+            tip.loaded();
+            that.typeList = res.data;
+             this.$apply();
+          }else{
+             tip.loaded();
+            return tip.error(res.msg,true);
+          }
+      }).catch(e=>{
+         tip.loaded();
+        return tip.error(e,true);
+      })
+  }
+
+  
+  
+  click(event) {
+    console.log(event)
+    let typeId = event.currentTarget.dataset.typeid;
+    let that = this;
+    NetWork.wxHttp2('GET',{
+      typeId:parseInt(typeId)
+    },publicApi.selectTypeById).then(res=>{
+        if(res.code == 200){
+          that.typeId=typeId;
+          that.name = res.data.name;
+         
+        }else{
+          return tip.error(res.msg,true);
+        }
+    }).catch(e=>{
+      return tip.error(e,true);
+    })
+    this.hiddenModifymodalput = false;
+  }
+  confirm() {
+      let {storeId,name} = this;
+      let that = this;
+      if(!storeId){
+        return tip.alert('店铺标识不存在');
+      }
+      if(!name){
+        return tip.alert('请填写商品分类名称');
+      }
+      NetWork.wxHttp2('POST',{storeId,name},publicApi.typeAdd).then(res=>{
+          if(res.code == 200){
+            tip.success(res.msg);
+            
+            that.typeListHander();
+             this.$apply();
+            return that.cancel();
+          }else{
+            return tip.error(res.msg,true);
+          }
+      }).catch(e=>{
+        return tip.error(e,true)
+      });
+  }
+  cancel() {
+    this.hiddenmodalput = true;
+  }
+  confirmModify(){
+    let {storeId,name,typeId} = this;
+      let that = this;
+      if(!typeId){
+        return tip.alert('商品分类标识不存在');
+      }
+      if(!storeId){
+        return tip.alert('店铺标识不存在');
+      }
+      if(!name){
+        return tip.alert('请填写商品分类名称');
+      }
+      NetWork.wxHttp2('POST',{storeId,name,typeId},publicApi.typeModify).then(res=>{
+          if(res.code == 200){
+            tip.success(res.msg);
+            
+            that.typeListHander();
+             this.$apply();
+            return that.cancelModify();
+          }else{
+            return tip.error(res.msg,true);
+          }
+      }).catch(e=>{
+        return tip.error(e,true)
+      });
+  }
+  cancelModify(){
+     this.hiddenModifymodalput = true;
+  }
+
+  removeType(event){
+  
+      let typeId = event.currentTarget.dataset.typeid;
+        console.log(typeId);
+      let that = this;
+       if(!typeId){
+        return tip.alert('商品分类标识不存在');
+      }
+      wx.showModal({
+      title: '删除',
+      content: '确定删除吗?',
+      success (res) {
+        if (res.confirm) {
+          NetWork.wxHttp2('POST',{typeId},publicApi.typeDel).then(res=>{
+              if(res.code == 200){
+                tip.success(res.msg);
+                that.onLoad();
+              }else{
+                return tip.error(res.msg,true);
+              }
+          }).catch(e=>{
+            return tip.error(e,true);
+          })
+        } else if (res.cancel) {
+          console.log('用户点击取消')
+        }
+      }
+    })
+
+
+  }
+  methods={
+    addType(){
+        this.hiddenmodalput = false;
+    },
+       name(e) {
+                this.name = e.detail.value
+            },
+  }
+}
+</script>
+

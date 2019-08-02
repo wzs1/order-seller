@@ -1,0 +1,20 @@
+<style lang="less">
+ .blank{
+   width: 750rpx;
+   height: 20rpx;
+   background:rgba(245,245,245,1);
+ }
+</style>
+<template>
+  <view class="blank">
+   
+  </view>
+</template>
+<script>
+  import wepy from 'wepy'
+  export default class Blank extends wepy.component {
+    props = {
+    
+        }
+  }
+</script>

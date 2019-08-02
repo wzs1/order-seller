@@ -1,0 +1,219 @@
+<style lang="less">
+    @import '../styles/add-goods';
+    page {
+        height: 100%;
+        width: 100%;
+        background: rgba(248, 248, 248, 1);
+    }
+</style>
+
+<template>
+    <view class="add-goods">
+        <blank></blank>
+        <view class="add-goods-container">
+            <view class="flex ai set-pub">
+                商品分类
+                <picker bindchange="bindPickerChange" value="{{typeId}}" range="{{typeList}}" range-key="name">
+                    <view class="picker">
+                       {{typeList[typeId].name}}
+
+                    </view>
+                </picker>
+            </view>
+            <view class="flex ai set-pub">
+                商品名称
+                <input type="text" placeholder="请输入商品名称" bindinput='name' />
+            </view>
+            <view class="flex ai set-pub">
+                商品价格
+                <input type="digit" placeholder="请输入商品价格" bindinput='price' step="0.01"/>
+            </view>
+            <view class="flex ai set-pub">
+                是否店家推荐
+            <radio-group class="radio-group" bindchange="radioChangeRecomanded">
+            <label class="radio">
+                <radio value="{{1}}" />{{'是'}}
+                <radio value="{{0}}"/>{{'否'}}
+            </label>
+            </radio-group>
+            </view>
+
+            <view class="flex ai set-pub">
+               是否为招牌菜
+            <radio-group class="radio-group" bindchange="radioChangeMain">
+            <label class="radio">
+                <radio value="{{1}}" />{{'是'}}
+                <radio value="{{0}}"/>{{'否'}}
+            </label>
+            </radio-group>
+            </view>
+
+            <view class="flex logo">
+                <view>商品图片</view>
+                <view>
+                    <image src="{{logo}}" mode="scaleToFill" @tap='bindImage' />
+                </view>
+                 
+            </view>
+            <button class="add-goods-btn" @tap='sellerAddMenu'>添加</button>
+        </view>
+    </view>
+</template>
+
+<script>
+    import wepy from 'wepy'
+    import Blank from '@/components/blank';
+    import tip from "@/utils/tip";
+  import publicApi from '@/api/publicApi';
+  import NetWork from '@/utils/wxHttp';
+  import uploadImage from '@/utils/uploadAliyun';
+    export default class AddGoods extends wepy.page {
+        config = {
+            backgroundTextStyle: 'light',
+            navigationBarTitleText: '添加商品',
+            navigationBarBackgroundColor: '#66C693',
+            navigationBarTextStyle: 'white',
+        }
+        components = {
+            blank: Blank
+        }
+        data = {
+            logo: '../assets/settled/clip.png',
+            
+            typeList:[],
+            storeId:'',
+            typeId:0,
+            url_temp:[],
+            name:'',
+            price:'',
+            recomanded:0,
+            main:0
+        }
+
+        onLoad(){
+             var value = wx.getStorageSync('store');
+             this.storeId = value.storeId;
+             this.typeListHander();
+        }
+
+        sellerAddMenu(){
+            let {storeId,name,recomanded,main,url_temp,price,typeId,typeList} = this;
+            if(!storeId){
+                return tip.alert('店铺标识不存在');
+            }
+            if(!name){
+                return tip.alert('请填写菜单名称');
+            }
+            if(isNaN(price)){
+                return tip.alert('请正确填写价格');
+            }
+            if(url_temp.length == 0){
+                return tip.alert('请至少上传一张图片');
+            }
+            let id = typeList[typeId].typeId;
+            if(!id){
+                return tip.alert('请选择商品分类');
+            }
+            NetWork.wxHttp2('POST',{
+                storeId,
+                name,
+                price,
+                recomanded,
+                main,
+                typeId:id,
+                imgUrl:JSON.stringify(url_temp)
+            },publicApi.addGoods).then(res=>{
+                if(res.code == 200){
+                    tip.success(res.msg);
+                    return wx.navigateBack({
+                    delta: 1
+                    })
+                }else{
+                    return tip.error(res.msg,true);
+                }
+            }).catch(e=>{
+                return tip.error(e,true);
+            })
+        }
+
+         typeListHander(){
+            let that = this;
+            tip.loading();
+            NetWork.wxHttp2('GET',{
+                storeId:that.storeId,
+            },publicApi.typeList).then(res=>{
+                
+                if(res.code == 200){
+                   
+                    if(res.data.length == 0){
+                        return tip.alert('请先配置商品分类');
+                    }
+                     tip.loaded();
+                    that.typeList = res.data;
+                    this.$apply();
+                }else{
+                    tip.loaded();
+                    return tip.error(res.msg,true);
+                }
+            }).catch(e=>{
+                tip.loaded();
+                return tip.error(e,true);
+            })
+  }
+
+        bindImage() {
+            this.url_temp = [];
+            let _this = this;
+            tip.loading();
+            wx.chooseImage({
+                count: 10,
+                success: function(res) {
+                    var filePath = res.tempFilePaths;
+                    _this.logo = filePath[0];
+                    //_this.url_temp = filePath;
+                    _this.$apply();
+                   filePath.map(item=>{
+                       uploadImage(item,'order/goods/',function(res){
+                        console.log('上传成功');
+                        console.log(res);
+                         tip.loaded();
+                        _this.url_temp.push(res.aliyunServerURL+'/'+res.aliyunFileKey);
+                         console.log(_this.url_temp)
+                        },function(e){
+                             tip.loaded();
+                            console.log(e);
+                        });
+                   })
+                   
+                    
+                },
+                fail: function(error) {
+                     tip.loaded();
+                    console.error("调用本地相册文件时出错")
+                    console.warn(error)
+                },
+                complete: function() {}
+            });
+        }
+        bindPickerChange(e){
+            console.log(e.detail.value)
+            this.typeId = e.detail.value;
+        }
+
+        methods = {
+            name(e){
+                this.name = e.detail.value;
+            },
+            price(e){
+                this.price = e.detail.value;
+            },
+            radioChangeRecomanded(e){
+                this.recomanded = e.detail.value;
+            },
+            radioChangeMain(e){
+                this.main = e.detail.value;
+            }
+        }
+    }
+</script>
+

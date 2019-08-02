@@ -1,0 +1,218 @@
+<style lang="less">
+  @import '../styles/edit-goods';
+    page {
+        height: 100%;
+        width: 100%;
+        background: rgba(248, 248, 248, 1);
+    }
+</style>
+<template>
+     <view class="edit-goods">
+        <blank></blank>
+        <view class="edit-goods-container">
+            <view class="flex ai set-pub">
+                商品分类
+                <picker bindchange="bindPickerChange" value="{{index}}" range="{{typeList}}" range-key="name">
+                    <view class="picker">
+                       {{typeList[index].name}}
+                    </view>
+                </picker>
+            </view>
+            <view class="flex ai set-pub">
+                商品名称
+                <input type="text" placeholder="请输入订餐电话" bindinput='name' value="{{name}}"/>
+            </view>
+            <view class="flex ai set-pub">
+                商品价格
+                <view>
+                    <input type="digit" value='{{price}}' bindinput='price'/>
+                </view>
+            </view>
+            <view class="flex logo">
+                <view>商品图片</view>
+                <view>
+                    <image src="{{logo}}" mode="scaleToFill" @tap='bindImage' />
+                </view>
+            </view>
+            <button class="edit-goods-btn" @tap='modifyGoods'>保存</button>
+        </view>
+    </view>
+</template>
+<script>
+import wepy from 'wepy';
+    import Blank from '@/components/blank';
+    import tip from "@/utils/tip";
+  import publicApi from '@/api/publicApi';
+  import NetWork from '@/utils/wxHttp';
+  import uploadImage from '@/utils/uploadAliyun';
+export default class EditGoods extends wepy.page {
+      config = {
+            backgroundTextStyle: 'light',
+            navigationBarTitleText: '编辑商品',
+            navigationBarBackgroundColor: '#66C693',
+            navigationBarTextStyle: 'white',
+        }
+         components = {
+            blank: Blank
+        }
+        data = {
+            logo: '../assets/settled/clip.png',
+            array: ['美国', '中国', '巴西', '日本'],
+            goodsId:'',
+            storeId:'',
+            name:'',
+            typeId:'',
+            imgUrl:'',
+            price:'',
+             typeList:[],
+            index:0,
+        }
+
+        onLoad(options){
+            this.goodsId = options.goodsId;
+            var value = wx.getStorageSync('store');
+             this.storeId = value.storeId;
+             this.getSellerGoodsSingel();
+             this.typeListHander();
+        }
+
+        typeListHander(){
+            let that = this;
+            tip.loading();
+            NetWork.wxHttp2('GET',{
+                storeId:that.storeId,
+            },publicApi.typeList).then(res=>{
+                
+                if(res.code == 200){
+                    
+                    if(res.data.length == 0){
+                        return tip.alert('请先配置商品分类');
+                    }
+                    tip.loaded();
+                    that.typeList = res.data;
+                    this.$apply();
+                }else{
+                    tip.loaded();
+                    return tip.error(res.msg,true);
+                }
+            }).catch(e=>{
+                tip.loaded();
+                return tip.error(e,true);
+            })
+  }
+
+        getSellerGoodsSingel(){
+              tip.loading();
+            NetWork.wxHttp2('GET',{
+                goodsId:this.goodsId
+            },publicApi.getSellerGoodsSingel).then(res=>{
+                if(res.code == 200){
+                     tip.loaded();
+                     this.name = res.data.name;
+                     this.typeId = res.data.typeId;
+                     this.imgUrl = JSON.parse(res.data.imgUrl);
+                     this.price = res.data.price
+                     this.logo = JSON.parse(res.data.imgUrl)[0];
+                    this.$apply();
+                }else{
+                     tip.loaded();
+                    return tip.error(res.msg,true);
+                }
+            }).catch(e=>{
+                 tip.loaded();
+                return tip.error(e,true);
+            })
+        }
+
+        bindImage() {
+            let _this = this;
+             this.imgUrl = [];
+             tip.loading();
+            wx.chooseImage({
+                count: 10,
+                success: function(res) {
+                    var filePath = res.tempFilePaths;
+                    _this.logo = filePath[0];
+                    console.log(_this.logo);
+                    _this.$apply();
+                    filePath.map(item=>{
+                       uploadImage(item,'order/goods/',function(res){
+                        console.log('上传成功');
+                        console.log(res);
+                         tip.loaded();
+                        _this.imgUrl.push(res.aliyunServerURL+'/'+res.aliyunFileKey);
+                         console.log(_this.imgUrl)
+                        },function(e){
+                             tip.loaded();
+                            console.log(e);
+                        });
+                   })
+                },
+                fail: function(error) {
+                     tip.loaded();
+                    console.error("调用本地相册文件时出错")
+                    console.warn(error)
+                },
+                complete: function() {}
+            });
+        }
+
+        bindPickerChange(e){
+            this.index = e.detail.value;
+        }
+
+        modifyGoods(){
+             let {goodsId,storeId,name,imgUrl,price,typeId,index,typeList} = this;
+             if(!goodsId){
+                 return tip.alert('商品主鍵不存在');
+             }
+               if(!storeId){
+                return tip.alert('店铺标识不存在');
+            }
+            if(!name){
+                return tip.alert('请填写菜单名称');
+            }
+            if(isNaN(price)){
+                return tip.alert('请正确填写价格');
+            }
+            if(imgUrl.length == 0){
+                return tip.alert('请至少上传一张图片');
+            }
+            
+            let id = typeList[index].typeId;
+            if(!id){
+                return tip.alert('请选择商品分类');
+            }
+
+            NetWork.wxHttp2('POST',{
+                goodsId,
+                storeId,
+                name,
+                price,
+                typeId:id,
+                imgUrl:JSON.stringify(imgUrl)
+            },publicApi.editGoods).then(res=>{
+                if(res.code == 200){
+                    tip.success(res.msg);
+                    return wx.navigateBack({
+                    delta: 1
+                    })
+                }else{
+                    return tip.error(res.msg,true);
+                }
+            }).catch(e=>{
+                return tip.error(e,true);
+            })
+        }
+
+        methods = {
+            name(e){
+                this.name = e.detail.value;
+            },
+            price(e){
+                this.price = e.detail.value;
+            },
+           
+        }
+}
+</script>

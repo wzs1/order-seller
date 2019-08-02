@@ -1,0 +1,212 @@
+<style lang="less">
+  @import '../styles/index';
+</style>
+
+<template>
+  <view class="main">
+    <view class="tab">
+      <view @tap="sellerOrder" data-status="{{2}}">已完成</view>
+      <view @tap="sellerOrder" data-status="{{1}}">未完成</view>
+    </view>
+    <view class="refresh-blank"></view>
+    <view class="menu" wx:for="{{orderList}}" wx:for-index="id" wx:for-item="order">
+      <view class="menu-title">
+        <view>
+          <image src="{{order.avatar}}"/>
+        </view>
+        <view>{{order.username}}</view>
+         <view>{{order.createTime}}</view>
+      </view>
+
+      <view class="menu-list" wx:for="{{order.orderDetailList}}" wx:for-item="orderDetail">
+        <view>
+          <view>
+              <image src="{{orderDetail.img}}" />
+          </view>
+          <view>
+            <view>{{orderDetail.goodsName}} <view>x{{orderDetail.purchaseNum}}</view></view>
+            <view>￥{{orderDetail.price}} <view>元/份</view></view>
+          </view>
+        </view>
+        
+        
+      </view>
+      <view class="total">
+        <view>
+          <view>
+            共{{order.orderDetailList.length}}件商品，实付<view>￥{{order.realcost}} </view>
+          </view>
+          <view>
+            订单号：{{order.sn}}
+          </view>
+        </view>
+      </view>
+      
+      <blank></blank>
+      
+    </view>
+    <view wx:if="{{orderList.length == 0}}">暂无数据~</view>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy';
+  import Blank from '@/components/blank';
+  import tip from "@/utils/tip";
+  import publicApi from '@/api/publicApi';
+  import NetWork from '@/utils/wxHttp';
+  import {
+    connect
+  } from 'wepy-redux';
+  @connect({
+    num(state) {
+      return state.counter.num;
+    },
+    asyncNum(state) {
+      return state.counter.asyncNum;
+    },
+    sumNum(state) {
+      return state.counter.num + state.counter.asyncNum;
+    }
+  })
+  export default class Index extends wepy.page {
+    config = {
+      backgroundTextStyle: 'light',
+      navigationBarTitleText: '订单中心',
+      navigationBarBackgroundColor: '#66C693',
+      navigationBarTextStyle: 'white',
+      enablePullDownRefresh: true,
+      onReachBottomDistance:50
+    };
+  components = {
+            blank: Blank
+        }
+    data = {
+      storeId:'',
+      status:2,
+      page:1,
+      rows:10,
+      orderList:[],
+      hasMore: true
+    };
+    computed = {};
+    methods = {};
+    events = {};
+
+    onLoad() {
+    var value = wx.getStorageSync('store');
+    if(value){
+    this.storeId = value.storeId;
+    console.log(113)
+    this.getSellerOrder();
+    }else{
+       return wx.redirectTo({
+          url: 'login'
+      })
+    }
+    
+      
+    }
+
+
+    getSellerOrder(){
+     
+        
+        let that = this;
+        tip.loading();
+        NetWork.wxHttp2('GET',{
+          storeId:1,
+          status:that.status,
+          page:that.page,
+          rows:that.rows
+        },publicApi.sellerOrder).then(res=>{
+            if(res.code == 200){
+              tip.loaded();
+              that.orderList = res.data;
+              this.$apply();
+            }else{
+               tip.loaded();
+              return tip.error(res.msg);
+            }
+        }).catch(e=>{
+           tip.loaded();
+          return tip.error(e,true);
+        })
+      }
+
+      onReachBottom(){
+        let that = this;
+        tip.loading();
+        NetWork.wxHttp2('GET',{
+          storeId:that.storeId,
+          status:that.status,
+          page:++that.page,
+          rows:that.rows
+        },publicApi.sellerOrder).then(res=>{
+            if(res.code == 200){
+              tip.loaded();
+              if(res.data.length == 0){
+                that.hasMore = false;
+                tip.success('没有更多的数据了');
+                wx.stopPullDownRefresh();//关闭下拉动画
+              }
+              if(res.data.length < 10){
+                that.hasMore = false;
+                 that.orderList = that.orderList.concat(res.data);
+                 that.$apply();
+                tip.success('没有更多的数据了');
+                wx.stopPullDownRefresh();//关闭下拉动画
+              }else{
+                that.hasMore = true;
+                that.orderList = that.orderList.concat(res.data);
+              }
+              
+              //this.$apply();
+            }else{
+               tip.loaded();
+              return tip.error(res.msg);
+            }
+        }).catch(e=>{
+           tip.loaded();
+          return tip.error(e,true);
+        })
+
+      }
+
+   
+
+  
+
+  methods = {
+    sellerOrder(event){
+        let status =   2
+        if(event){
+         status =  event.currentTarget.dataset.status;
+        }
+        if(status){
+          this.status = status;
+        }
+        this.page = 1;
+        this.orderList = [];
+        let that = this;
+        NetWork.wxHttp2('GET',{
+          storeId:that.storeId,
+          status:that.status,
+          page:that.page,
+          rows:that.rows
+        },publicApi.sellerOrder).then(res=>{
+            if(res.code == 200){
+              that.orderList = res.data;
+               this.$apply();
+            }else{
+              return tip.error(res.msg);
+            }
+        }).catch(e=>{
+          return tip.error(e,true);
+        })
+      }
+  }
+
+
+  }
+</script>

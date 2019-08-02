@@ -1,0 +1,205 @@
+<style lang="less">
+@import '../styles/goods-manager';
+page {
+  height: 100%;
+  width: 100%;
+  background: rgba(248, 248, 248, 1);
+}
+</style>
+
+<template>
+    <view class="goods-container">
+        
+         <view class="goods-ul" wx:for="{{goodsList}}" wx:for-item="goods">
+            <blank></blank>
+            <view class="goods-list">
+                <view class="good-img">
+                    <image src="{{goods.imgUrl[0]}}" />
+                </view>
+                <view class="goods-info">
+                    <view>
+                        {{goods.name}}
+                    </view>
+                    <view>
+                        ￥{{goods.price}}
+                    </view>
+                </view>
+                <view class="goods-edit">
+                   <view>
+                       
+                       
+                    <view @tap="goGoodsEdit" data-goodsId="{{goods.goodsId}}">
+                        <i class="iconfont icon-bianji"></i>
+                    </view>
+                
+                    <view @tap="delGoods" data-goodsId="{{goods.goodsId}}">
+                           <i class="iconfont icon-shanchu"></i>
+                    </view>
+                    </view>
+                </view>
+                
+            </view>
+        </view>
+        <navigator url="{{'add-goods'}}" open-type="navigate" hover-class="none">
+        
+        <view class="badge">
+            <i class="iconfont icon-jia"></i>
+        </view>
+        </navigator>
+    </view>
+</template>
+
+<script>
+import wepy from 'wepy';
+import Blank from '@/components/blank';
+import tip from '@/utils/tip';
+import publicApi from '@/api/publicApi';
+import NetWork from '@/utils/wxHttp';
+export default class GoodsManager extends wepy.page {
+  config = {
+    backgroundTextStyle: 'light',
+    navigationBarTitleText: '商品管理',
+    navigationBarBackgroundColor: '#66C693',
+    navigationBarTextStyle: 'white',
+    enablePullDownRefresh: true,
+    onReachBottomDistance: 50
+  };
+  components = {
+    blank: Blank
+  };
+
+  data = {
+    status: 1,
+    page: 1,
+    rows: 10,
+    goodsList: []
+  };
+
+  onLoad() {
+    var value = wx.getStorageSync('store');
+    this.storeId = value.storeId;
+    this.getSellerGoods();
+  }
+  onShow(){
+      this.getSellerGoods();
+  }
+
+  getSellerGoods() {
+    let that = this;
+    tip.loading();
+    NetWork.wxHttp2(
+      'GET',
+      {
+        storeId: that.storeId,
+        page: that.page,
+        rows: that.rows,
+        status: that.status
+      },
+      publicApi.getGoodsByPage
+    )
+      .then(res => {
+        if (res.code == 200) {
+          tip.loaded();
+          res.data.map(item => {
+            item.imgUrl = JSON.parse(item.imgUrl);
+          });
+          that.goodsList = res.data;
+          that.$apply();
+        } else {
+          tip.loaded();
+          return tip.error(res.msg, true);
+        }
+      })
+      .catch(e => {
+        tip.loaded();
+        return tip.error(e, true);
+      });
+  }
+
+  onReachBottom() {
+    let that = this;
+    tip.loading();
+    NetWork.wxHttp2(
+      'GET',
+      {
+        storeId: that.storeId,
+        page: ++that.page,
+        rows: that.rows,
+        status: that.status
+      },
+      publicApi.getGoodsByPage
+    )
+      .then(res => {
+        if (res.code == 200) {
+          tip.loaded();
+          if (res.data.length == 0) {
+            tip.success('没有更多的数据了');
+            wx.stopPullDownRefresh(); //关闭下拉动画
+          }
+          if (res.data.length < 10) {
+            let list = res.data;
+            list.map(item => {
+              item.imgUrl = JSON.parse(item.imgUrl);
+            });
+            that.goodsList = that.goodsList.concat(list);
+            that.$apply();
+            tip.success('没有更多的数据了');
+            wx.stopPullDownRefresh(); //关闭下拉动画
+          } else {
+            let list = res.data;
+            list.map(item => {
+              item.imgUrl = JSON.parse(item.imgUrl);
+            });
+            that.goodsList = that.goodsList.concat(list);
+          }
+        } else {
+          tip.loaded();
+          return tip.error(res.msg, true);
+        }
+      })
+      .catch(e => {
+        tip.loaded();
+        return tip.error(e, true);
+      });
+  }
+
+  goGoodsEdit(e) {
+    let goodsId = e.currentTarget.dataset.goodsid;
+    wx.navigateTo({
+      url: 'edit-goods?goodsId=' + goodsId
+    });
+  }
+
+  delGoods(e) {
+    let that = this;
+    let goodsId = e.currentTarget.dataset.goodsid;
+    if (!goodsId) {
+      return tip.alert('商品主鍵不存在');
+    }
+    wx.showModal({
+      title: '删除',
+      content: '确定删除吗?',
+      success(res) {
+        if (res.confirm) {
+          NetWork.wxHttp2('POST', { goodsId }, publicApi.removegoods)
+            .then(res => {
+              if (res.code == 200) {
+                   that.onLoad();
+                tip.success(res.msg);
+                
+              } else {
+                return tip.error(res.msg, true);
+              }
+            })
+            .catch(e => {
+              return tip.error(e, true);
+            });
+        } else if (res.cancel) {
+          console.log('用户点击取消');
+        }
+      }
+    });
+  }
+}
+</script>
+
